@@ -1,0 +1,77 @@
+<html>
+
+<head>
+
+<title>my_web_socket_test</title>
+
+<script type="text/javascript" src="javascript/mootools.js"></script>
+<script type="text/javascript">
+var echoSocket = new WebSocket("ws://localhost:9292",[]);
+
+echoSocket.onopen = function(e) {
+	// Check the protocol chosen by the server
+	console.log("Protocol: " + echoSocket.protocol);
+	console.log("readyState: " + echoSocket.readyState);
+
+};
+
+echoSocket.onmessage = function(e) {
+	console.log("Message: " + e.data);
+};
+
+window.addEvent("domready", function() {
+	var submit = document.id("submit");
+	console.log(submit);
+	submit.addEvent('click', function() {
+		echoSocket.send(document.id("input").get('value'));
+	});
+});
+
+window.addEvent("unload", function() {
+	console.log("unloading");
+	echoSocket.close(1001);
+});
+
+</script>
+
+</head>
+
+<body>
+<input id="input" type="text"></input>
+<input id="submit" type="submit"></input>
+<video autoplay id="webcamStream"></video>
+<script type="text/javascript">
+
+var video = document.id("webcamStream");
+
+function successCallback(stream) {
+
+	window.stream = stream;
+
+	if (window.URL) {
+ 	// Chrome
+ 		video.src = window.URL.createObjectURL(stream);
+ 	} else {
+ 	// Firefox and Opera
+ 		video.src = stream;
+ 	}
+
+ 	video.play();
+}
+
+function errorCallback(error){
+	console.log("navigator.getUserMedia error: ", error);
+}
+
+navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+var constraints = {audio: false, video: true};
+
+navigator.getUserMedia(constraints, successCallback, errorCallback);
+
+</script>
+
+
+</body>
+
+</html>
