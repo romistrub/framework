@@ -266,6 +266,9 @@ loop {
 			puts "\r\nDECODED FRAME\r\n\r\n"
 			ap decoded_frame
 			
+			# If opcode is 8, initiate close response 
+			
+			
 			payload = decoded_frame["payload"]
 			
 			return_message = MyWebSocket.encode_frame(1,payload)
