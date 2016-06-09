@@ -278,8 +278,6 @@ port = 9292
 
 server = MyWebSocketServer.new('', port)
 
-
-
 loop {
 	# receive connection
 	connection = server.accept # returns MyWebSocket
