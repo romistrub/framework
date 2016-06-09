@@ -15,7 +15,79 @@ puts "Process.pid " + Process.pid.to_s
 
 Thread.abort_on_exception = true
 
-class MyWebSocket
+class MyWebSocketServer < TCPServer
+
+	def initialize (hostname, port)
+
+		server = super(hostname, port)
+		@port = port
+		@connection_count = 0
+		@connections = []
+		
+		puts "server started on port #{@port}" ##
+
+		puts "\r\nSTART TESTS"
+		#puts MyWebSocket.bytes_to_int([0,0,1])
+		puts "END TESTS\r\n"
+		
+	end
+	def accept
+	
+		connection = MyWebSocket.new(self.accept, self)
+		
+		@connection_count += 1
+		@connections << connection
+		
+		puts "connection #{@connection_count} on port #{@port}" ##
+		puts "local address: " + connection.local_address.inspect
+		puts "remote address: " + connection.remote_address.inspect
+		puts "connections:" ##
+		ap connections ##
+		
+		connection
+	end
+end
+
+class MyWebSocket < TCPSocket
+
+	def initialize(connection, server)
+		@server = server
+		@message_count = 0
+		
+		handshake
+	end
+	
+	def handshake
+	
+		string = recv(1024)
+		
+		in_headers = MyWebSocket.parse_http_headers(string)
+		ap in_headers ##
+
+		if defined? in_headers["Sec-WebSocket-Key"]
+
+			# compute response for WebSocket
+			
+			websocket_key = in_headers["Sec-WebSocket-Key"]
+			key_suffix = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+			computed_key = Digest::SHA1.base64digest(websocket_key + key_suffix)
+
+			out_headers =  "HTTP/1.1 101 Switching Protocols\r\n"
+			out_headers << "Connection: Upgrade\r\n"
+			out_headers << "Date: #{Time.now}\r\n"
+			out_headers << "Sec-Websocket-Accept: #{computed_key}\r\n"
+			out_headers << "Server: Ruby Websocket\r\n"
+			out_headers << "Upgrade: websocket\r\n"
+			out_headers << "\r\n"
+
+			write out_headers
+
+			puts "RESPONSE SENT:" ##
+			puts out_headers ##
+
+		end
+		
+	end
 
 	def self.parse_http_headers(header_string)
 
@@ -38,8 +110,9 @@ class MyWebSocket
 		
 	end
 
-	def self.bytes_to_int(bytes)
+	def self.byte_string_to_int(byte_string)
 	
+		bytes = byte_string.bytes
 		bytes = bytes.reverse
 		ap bytes
 		
@@ -65,7 +138,7 @@ class MyWebSocket
 		
 		chars = []
 		
-		mask = 255
+		mask = 255 # 11111111 in binary
 		
 		while int > 0 do
 			chars << (mask & int).chr
@@ -103,8 +176,8 @@ class MyWebSocket
 		# whittle down the first byte to get the opcode
 		
 		# first bit is set to one if message is final
-		final = byte_one[7]
-		byte_one = final == 1 ? byte_one-128 : byte_one
+		final = byte_one[7] == 1 ? true : false
+		byte_one = final ? byte_one-128 : byte_one
 		
 		reserve_1 = byte_one[6]
 		byte_one = reserve_1 == 1 ? byte_one-64 : byte_one
@@ -120,16 +193,18 @@ class MyWebSocket
 		byte_two = bytes.shift
 		
 		# first bit (of second byte) is set to one if message is masked
-		masked = byte_two[7]
+		masked = (byte_two[7] == 1) ? true : false
 		
+		# negate mask flag bit
 		if masked
-			byte_two = byte_two-128 # negate mask flag bit
+			byte_two = byte_two-128
 		end
 		
+		# get payload length
 		if byte_two == 126
-			payload_length = self.bytes_to_int(connection.recv(2).bytes)
+			payload_length = self.byte_string_to_int(connection.recv(2))
 		elsif byte_two == 127
-			payload_length = self.bytes_to_int(connection.recv(8).bytes)
+			payload_length = self.byte_string_to_int(connection.recv(8))
 		else
 			payload_length = byte_two
 		end
@@ -156,11 +231,12 @@ class MyWebSocket
 		"payload"=>payload}
 	end
 	
-	def self.encode_frame(opcode, payload)
+	def self.encode_frame(fin, opcode, payload)
 	
 		body = ""
 	
-		byte_one = 128 + opcode # assumes message is final
+		byte_one = (fin) ? 128 : 0
+		byte_one += opcode
 		
 		if payload.length > 65535 # largest expressible integer using two bytes
 			byte_two = 127
@@ -186,65 +262,21 @@ require 'awesome_print'
 
 port = 9292
 
-s = TCPServer.new '',port
-
-puts "server started on port #{port}" ##
-
-puts "\r\nSTART TESTS"
-#puts MyWebSocket.bytes_to_int([0,0,1])
-puts "END TESTS\r\n"
-
-i=0
-connections = []
+server = MyWebSocketServer.new('', port)
 
 loop {
 
-	i = i+1
+	connection = server.accept # returns MyWebSocket
 
-	connection = s.accept
-	
-	puts "connection #{i} on port #{port}" ##
-	puts "local address: " + connection.local_address.inspect
-	puts "remote address: " + connection.remote_address.inspect
-
-	connections << connection
-	
-	puts "connections:" ##
-	ap connections ##
-
-	string = connection.recv(1024)
-	
-	in_headers = MyWebSocket.parse_http_headers(string)
-	ap in_headers ##
-
-	if defined? in_headers["Sec-WebSocket-Key"]
-
-		# compute response for WebSocket
-		
-		websocket_key = in_headers["Sec-WebSocket-Key"]
-		key_suffix = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-		computed_key = Digest::SHA1.base64digest(websocket_key + key_suffix)
-
-		out_headers =  "HTTP/1.1 101 Switching Protocols\r\n"
-		out_headers << "Connection: Upgrade\r\n"
-		out_headers << "Date: #{Time.now}\r\n"
-		out_headers << "Sec-Websocket-Accept: #{computed_key}\r\n"
-		out_headers << "Server: Ruby Websocket\r\n"
-		out_headers << "Upgrade: websocket\r\n"
-		out_headers << "\r\n"
-
-		connection.write out_headers
-
-		puts "RESPONSE SENT:" ##
-		puts out_headers ##
-
-	end
-
+	# begin receiving messages
 	Thread.new {
-		this_connection = connection
-		j=0
+
+		j = 0
+		
 		loop {
+		
 			j += 1
+
 =begin
 			k = 0
 			frame = connection.recv(1024).bytes.each{|byte|
@@ -253,7 +285,6 @@ loop {
 			}
 =end
 #=begin			
-			# loopback
 			
 			decoded_frame = MyWebSocket.decode_frame(this_connection)
 			
@@ -265,20 +296,25 @@ loop {
 			
 			puts "\r\nDECODED FRAME\r\n\r\n"
 			ap decoded_frame
+						
+			case decoded_frame["opcode"]
+			when 8 # If opcode is 8, initiate close response
+				
+			when 1
 			
-			# If opcode is 8, initiate close response 
+				payload = decoded_frame["payload"]
+				
+				return_message = MyWebSocket.encode_frame(true, 1, payload)
+				
+				puts "\r\nCONNECTIONS\r\n\r\n"
+				ap connections
+				
+				connections.each {|c|
+					c.write return_message
+				}	
+				
+			end
 			
-			
-			payload = decoded_frame["payload"]
-			
-			return_message = MyWebSocket.encode_frame(1,payload)
-			
-			puts "\r\nCONNECTIONS\r\n\r\n"
-			ap connections
-			
-			connections.each {|c|
-				c.write return_message
-			}
 #=end
 		}
 	}
