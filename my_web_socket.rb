@@ -56,8 +56,71 @@ class MyWebSocket < TCPSocket
 	def initialize(connection, server)
 		@server = server
 		@message_count = 0
+		@messages = []
 		
 		handshake_response
+		
+		# receive messages
+		Thread.new {
+		
+			loop {
+				
+				decoded_frame = MyWebSocket.decode_frame(this_connection)
+				opcode = decoded_frame["opcode"]
+				payload = decoded_frame["payload"]
+				fin = decoded_frame["fin"]
+				
+				case opcode
+				when 10 # pong
+				
+					# register pong successful
+				
+				when 9 # ping
+				
+					# send pong
+				
+				when 8 # close
+				
+					@on_close.call()
+					close
+				
+				when 2 # binary
+				
+					message = add_message
+					message << payload
+				
+				when 1 # text
+				
+					message = add_message
+					message << payload
+				
+				when 0 # continuation
+				
+					message << payload
+				
+				end
+				
+				if fin
+				
+					@on_message.call(message)
+				
+				end
+				
+			}
+			
+		}
+	end
+	
+	def close
+	
+		encode_frame(1,8,)
+	
+	end
+	
+	def add_message
+	
+		MyWebsocketMessage.new(self)
+	
 	end
 	
 	def handshake_response
@@ -274,6 +337,18 @@ class MyWebSocket < TCPSocket
 
 end
 
+class MyWebSocketMessage < String
+
+	def initialize(connection)
+
+		@connection = connection
+		
+		self = ""
+		
+	end
+
+end
+
 port = 9292
 
 server = MyWebSocketServer.new('', port)
@@ -281,37 +356,28 @@ server = MyWebSocketServer.new('', port)
 
 
 loop {
+
+	options = {
+		:on_open => lambda {
+		},
+		:on_message => lambda(connection, message) {
+			return_message = MyWebSocket.encode_frame(true, 1, message)
+			
+			puts "\r\nCONNECTIONS\r\n\r\n"
+			ap connections
+			
+			connections.each {|c|
+				c.write return_message
+			}
+		},
+		:on_close => lambda {
+		}
+	}
+	
 	# receive connection
 	connection = server.accept # returns MyWebSocket
 
-	# receive messages
-	Thread.new {
-		
-		loop {
-			
-			decoded_frame = MyWebSocket.decode_frame(this_connection)
 
-						
-			case decoded_frame["opcode"]
-			when 8 # If opcode is 8, initiate close response
-				
-			when 1
-			
-				payload = decoded_frame["payload"]
-				
-				return_message = MyWebSocket.encode_frame(true, 1, payload)
-				
-				puts "\r\nCONNECTIONS\r\n\r\n"
-				ap connections
-				
-				connections.each {|c|
-					c.write return_message
-				}	
-				
-			end
-			
-		}
-	}
 
 	##connection.close
 }
