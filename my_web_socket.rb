@@ -73,7 +73,6 @@ class Framework
 
 		bytes = byte_string.bytes
 		bytes = bytes.reverse
-		ap bytes
 
 		sum = 0
 
@@ -168,9 +167,9 @@ class Framework
 				@server = server
 				@message_count = 0
 				@messages = []
-				@on_open = handlers[:on_open]
-				@on_message = handlers[:on_message]
-				@on_close = handlers[:on_close]
+				@on_open = handlers[:on_open] || proc {}
+				@on_message = handlers[:on_message] || proc {}
+				@on_close = handlers[:on_close] || proc {}
 
 				handshake_response
 		
@@ -189,6 +188,9 @@ class Framework
 						puts "\r\n#########################################\r\n"
 
 						puts "\r\nCONNECTION\r\n\r\n##{get_connection_number} #{@socket}"
+
+						puts "\r\nDECODED FRAME\r\n\r\n"
+						ap frame
 
 						case opcode
 						when 10 # pong
@@ -225,9 +227,6 @@ class Framework
 							message << payload
 				
 						end
-
-						puts "\r\nDECODED FRAME\r\n\r\n"
-						ap frame
 				
 					end
 		
@@ -243,7 +242,7 @@ class Framework
 				@socket_open = false
 
 				puts "\r\nCONNECTION CLOSED\r\n\r\n"
-				puts "#{close_code}: #{reason}"
+				puts "#{code}: #{reason}"
 		
 			end
 	
@@ -408,9 +407,8 @@ port = 9292
 
 server = Framework::WebSocket::Server.new('', port)
 
+# on_open, on_message, and/or on_close
 handlers = {
-	:on_open => proc {
-	},
 	:on_message => proc {|connection, message|
 		return_message = connection.encode_frame(true, 1, message.content)
 		
@@ -420,14 +418,12 @@ handlers = {
 		connection.server.connections.each {|c|
 			c.write return_message
 		}
-	},
-	:on_close => proc {
 	}
 }
 
 loop {
 
 	# receive connection
-	connection = server.accept handlers
+	server.accept handlers
 
 }

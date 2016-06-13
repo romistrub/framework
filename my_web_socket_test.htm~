@@ -18,7 +18,7 @@
 	echoSocket.onmessage = function(e) {
 		var jsonString = e.data;
 		console.log("Message:")
-		console.log(JSON.stringify(JSON.parse(jsonString), null, 2));
+		console.log(JSON.stringify(JSON.parse(jsonString)));
 	};
 
 	window.addEvent("domready", function() {
