@@ -16,6 +16,7 @@ Thread.abort_on_exception = true
 require 'digest/sha1'
 require 'socket'
 require 'awesome_print'
+require 'json'
 
 
 class Framework
@@ -101,9 +102,14 @@ class Framework
 
 			attr_reader :tcp_server, :hostname, :port
 			attr_reader :connection_count, :connections, :connection_history
+			attr_reader :options
+			
+			DEFAULT_OPTIONS = {allow_extensions: true}
 
-			def initialize (hostname, port)
-
+			def initialize (hostname, port, options = {})
+			
+				@options = DEFAULT_OPTIONS.merge(options)
+			
 				@tcp_server = TCPServer.new(hostname, port)
 				@hostname = hostname
 				@port = port
@@ -216,7 +222,7 @@ class Framework
 							if fin
 				
 								messages << message
-								@on_message.call(self, message)
+								@on_message.call(message)
 				
 							end
 				
@@ -382,12 +388,30 @@ class Framework
 
 		class Message
 
-			attr_reader :content, :connection
+			attr_reader :content, :connection, :server, :format
 
-			def initialize(connection, msg = "")				
+			FORMATS = {
+				"\x00" => "plaintext",
+				"\x01" => "json"
+			}
+			
+			def initialize(connection, message = "")
 				
-				@content = msg
 				@connection = connection
+				@server = connection.server
+						
+				formats = Framework::WebSocket::Message::FORMATS
+		
+				if @server.options[:allow_extensions]
+					format = (formats.has_key?(message[0])) ? formats[message.slice!(0)] : "plaintext"
+				end
+				
+				case format
+				when "plaintext"
+					@content = message
+				when "json"
+					@content = json.parse(message)
+				end
 		
 			end
 
@@ -407,33 +431,24 @@ port = 9292
 
 server = Framework::WebSocket::Server.new('', port)
 
+
+
 # on_open, on_message, and/or on_close
-module Format
-	PLAINTEXT 	= "\x0"
-	JSON 		= "\x1"
-	XML 		= "\x2"
-end
 
 handlers = {
-	:on_message => proc {|connection, message|
+	:on_message => proc {|message|
+	
+		connection = message.connection
 
-		case msg[0]
-		when PLAINTEXT, JSON, XML
-			msg.slice!(0)
-			@content = msg
-		when JSON
-			msg.slice!(0)
-			@
-		when XML
-		end
-
-		return_message = connection.encode_frame(true, 1, message.content)
+		return_payload = (message.format == "json") ? JSON.generate(message.content) : message.content
+		
+		return_frame = connection.encode_frame(true, 1, return_payload)
 		
 		puts "\r\nCONNECTIONS\r\n\r\n"
 		ap connection.server.connections
 		
 		connection.server.connections.each {|c|
-			c.write return_message
+			c.write return_frame
 		}
 	}
 }

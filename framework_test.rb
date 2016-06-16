@@ -1,9 +1,23 @@
+class Class
+	attr_reader :options
+	
+	DEFAULT_OPTIONS = {b: 2, c: 3}
+	def initialize(a = 1, options={})
+		@options = DEFAULT_OPTIONS.merge(options)
+	end
+end
+
+obj = Class.new(0, {c:33, d:24})
+puts obj.options
+
+=begin
 case 1
 when 0, 1
 puts "gotcha"
 else
 puts "missed ya"
 end
+
 =begin
 
 class A
