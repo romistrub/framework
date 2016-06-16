@@ -384,8 +384,26 @@ class Framework
 
 			attr_reader :content, :connection
 
-			def initialize(connection, msg = "")				
+			module Format
+				PLAINTEXT 	= "\x0"
+				JSON 		= "\x1"
+				XML 		= "\x2"
+			end
+
+			def initialize(connection, msg = "")
+
+				@format =  || PLAINTEXT	# grab first character of msg
 				
+				case msg[0]
+				when PLAINTEXT, JSON, XML
+					msg.slice!(0)
+					@content = msg
+				when JSON
+					msg.slice!(0)
+					@
+				when XML
+				end
+
 				@content = msg
 				@connection = connection
 		
@@ -408,25 +426,8 @@ port = 9292
 server = Framework::WebSocket::Server.new('', port)
 
 # on_open, on_message, and/or on_close
-module Format
-	PLAINTEXT 	= "\x0"
-	JSON 		= "\x1"
-	XML 		= "\x2"
-end
-
 handlers = {
 	:on_message => proc {|connection, message|
-
-		case msg[0]
-		when PLAINTEXT, JSON, XML
-			msg.slice!(0)
-			@content = msg
-		when JSON
-			msg.slice!(0)
-			@
-		when XML
-		end
-
 		return_message = connection.encode_frame(true, 1, message.content)
 		
 		puts "\r\nCONNECTIONS\r\n\r\n"

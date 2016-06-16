@@ -1,0 +1,59 @@
+Classes: TILE, WORD, TURN, GAME, BOARD, SPACE, LOBBY, PLAYER, RACK, RACKSPACE, BAG
+
+USER fields: username, password, nickname, status; games
+
+
+
+PROGRAM FLOW
+
+	Example JSON action chain:
+		# relative to the Connection object
+		# connection.app(app_id).move_tile({id:"28", p:{x,y}})
+		[	
+			["app", app_id],
+			["move_tile", {"id" : "28", "p" : {x,y}}]
+		]
+
+NOTES
+	one User can have multiple Connections
+
+TO ADD
+
+	class Framework::Website
+	class Framework::Website::App
+
+	Framework::WebSocket::Connection.website
+	Framework::WebSocket::Connection.website_connections
+	Framework::WebSocket::Connection.app(app_id)
+	Framework::WebSocket::Connection.app_connections(app_id)
+
+
+NEW USER
+
+	Example JSON action chain:
+		# relative to the Connection object
+		# results in connection.website.new_user({"username":"romistrub","password":"password_hash"})
+		[
+			["website"],
+			["new_user", {"username":"romistrub","password":"password_hash"]
+		]
+
+	If cookies for username, password: send log-in info over Websocket
+
+
+class Website
+
+	@players
+	def log_in(username, password)
+		check against MySQL record
+		if no record for username return {false, "username does not exist"}
+		if wrong password return return {false, "incorrect password for username"}
+		add_player(record)
+		remove password from record
+		return record
+
+USER FLOW
+
+	Display new player (username, password) || log-in (w/ username, password), remember me
+	Load Nickname, Status
+	New game

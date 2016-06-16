@@ -19,4 +19,6 @@ client = Mysql2::Client.new(options)
 
 #puts client.query("CREATE TABLE players (id INT NOT NULL primary key AUTO_INCREMENT);")
 
+# fields: username, password, nickname, status; 
 
+# initial data dump: 
