@@ -1,14 +1,28 @@
-Classes: TILE, WORD, TURN, GAME, BOARD, SPACE, LOBBY, PLAYER, RACK, RACKSPACE, BAG
+Classes: USER, WEBSITE, APP, TILE, WORD, TURN,  BOARD, SPACE, LOBBY, RACK, RACKSPACE, BAG
 
 USER fields: username, password, nickname, status; games
 
+#### TO-DO #####
 
+
+#### TO-ADD ####
+
+xx	class Framework::WebSocket::Message.complete	# JSON is parsed on every msg, but msg may not be completely xfered
+
+	class Framework::Site::User
+	class Framework::Site::Page
+	class Framework::Site::Page::App
+
+	Framework::WebSocket::Page.site
+	Framework::WebSocket::Page.site_connections
+	Framework::WebSocket::Page.app(app_id)
+	Framework::WebSocket::Page.app_connections(app_id)	
 
 PROGRAM FLOW
 
 	Example JSON action chain:
 		# relative to the Connection object
-		# connection.app(app_id).move_tile({id:"28", p:{x,y})
+		# connection.app(app_id).move_tile({id:"28", p:{x,y}})
 		[	
 			["app", app_id],
 			["move_tile", {"id" : "28", "p" : {x,y}}]
@@ -17,25 +31,17 @@ PROGRAM FLOW
 NOTES
 	one User can have multiple Connections
 
-TO ADD
 
-	class Framework::Website
-	class Framework::Website::App
-
-	Framework::WebSocket::Connection.website
-	Framework::WebSocket::Connection.website_connections
-	Framework::WebSocket::Connection.app(app_id)
-	Framework::WebSocket::Connection.app_connections(app_id)
 
 
 NEW USER
 
 	Example JSON action chain:
 		# relative to the Connection object
-		# results in connection.website.new_user({"username":"romistrub","password":"password_hash"})
+		# results in connection.site.new_user({"username":"romistrub","password":"password_hash"})
 		[
-			["website"],
-			["new_user", {"username":"romistrub","password":"password_hash"]
+			["site"],
+			["new_user", {"username":"romistrub","password":"password_hash"}]
 		]
 
 	If cookies for username, password: send log-in info over Websocket

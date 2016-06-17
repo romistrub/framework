@@ -1,0 +1,17 @@
+<html>
+	<head>
+		<script type="text/javascript" src="javascript/mootools.js"></script>
+		<script type="text/javascript">
+			window.addEvent("domready", function() {
+				console.log($('submit'));
+				$('submit').addEvent("click", function() {
+					$('hi').innerHTML = "<script type='text/javascript'>console.log('hi');<\/script>";
+				});
+			});
+		</script>
+	</head>
+	<body>
+		<input id="submit" type="submit" value="Insert Script"/>
+		<div id="hi"></div>
+	</body>
+</html>

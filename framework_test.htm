@@ -13,13 +13,19 @@
 		// Check the protocol chosen by the server
 		console.log("Protocol: " + echoSocket.protocol);
 		console.log("readyState: " + echoSocket.readyState);
+		echoSocket.send("\x06"); // send initialization signal (ASCII 'ACKNOWLEDGE')
 	};
 
 	echoSocket.onmessage = function(e) {
 		var message = e.data;
+
 		console.log("Message:");
-		console.log($("json"));
-		if ($("json").checked) {
+
+		// check for JSON prefix
+		console.log("First character code point is: " + message.charCodeAt(0));
+		if (message.charCodeAt(0) == 1) {
+			console.log("JSON detected");
+			message = message.slice(1);
 			console.log(JSON.stringify(JSON.parse(message), null, 2));
 		} else {
 			console.log(message);
@@ -31,6 +37,11 @@
 	
 		document.id("submit").addEvent('click', function() {
 			var message = $("input").get('value');
+
+			// if JSON, prepend \x01
+			if ($("json").checked) {
+				message = "\x01" + message;
+			}
 
 			echoSocket.send(message);
 		});

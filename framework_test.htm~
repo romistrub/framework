@@ -7,41 +7,47 @@
 <script type="text/javascript" src="javascript/mootools.js"></script>
 <script type="text/javascript">
 
-	/*
-	Classes: TILE, WORD, TURN, GAME, BOARD, SPACE, LOBBY, PLAYER, RACK, RACKSPACE, BAG
-	
-	Example JSON actions:
-		{
-			"class":"Tile",
-			"id":28,
-			"action":"move_to"
-			"selector":"#rack > .2"
-		}
-
-	
-	*/
-
 	var echoSocket = new WebSocket("ws://localhost:9292",[]);
 
 	echoSocket.onopen = function(e) {
 		// Check the protocol chosen by the server
 		console.log("Protocol: " + echoSocket.protocol);
 		console.log("readyState: " + echoSocket.readyState);
+		echoSocket.send("\x06"); // send initialization signal (ASCII 'ACKNOWLEDGE'
 	};
 
 	echoSocket.onmessage = function(e) {
-		var jsonString = e.data;
-		console.log("Message:")
-		console.log(JSON.stringify(JSON.parse(jsonString), null, 2));
+		var message = e.data;
+
+		console.log("Message:");
+
+		// check for JSON prefix
+		console.log("First character code point is: " + message.charCodeAt(0));
+		if (message.charCodeAt(0) == 1) {
+			console.log("JSON detected");
+			message = message.slice(1);
+			console.log(JSON.stringify(JSON.parse(message), null, 2));
+		} else {
+			console.log(message);
+		}
+		
 	};
 
 	window.addEvent("domready", function() {
+	
 		document.id("submit").addEvent('click', function() {
-			echoSocket.send(document.id("input").get('value'));
+			var message = $("input").get('value');
+
+			// if JSON, prepend \x01
+			if ($("json").checked) {
+				message = "\x01" + message;
+			}
+
+			echoSocket.send(message);
 		});
 
 		document.id("submit_close").addEvent('click', function() {
-			echoSocket.close(parseInt(document.id("close_code").value), document.id("close_reason").value);
+			echoSocket.close(parseInt($("close_code").value), $("close_reason").value);
 		});
 
 	});
@@ -59,14 +65,16 @@
 	<h1>Ruby Framework Test</h1>
 	<h2>Websocket</h2>
 	<h3>Message<h3>
-	<input id="input" type="text"></input>
-	<input id="submit" type="submit"></input>
+	<input id="input" type="text"/>
+	<label for="json">JSON?</label>
+	<input id="json" type="checkbox"/>
+	<input id="submit" type="submit"/>
 	<h3>Close</h3>
 	<label for="close_code">Code</label>
-	<input id="close_code" type="text"></input>
+	<input id="close_code" type="text"/>
 	<label for="close_reason">Reason</label>
-	<input id="close_reason" type="text"></input>
-	<input id="submit_close" type="submit"></input>
+	<input id="close_reason" type="text"/>
+	<input id="submit_close" type="submit"/>
 
 </body>
 

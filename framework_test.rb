@@ -1,3 +1,26 @@
+class C
+	def initialize
+		@a = 1
+		@b = "z"
+		@a = @b
+		@b = "a"
+		puts @a
+	end
+end
+
+C.new
+
+=begin
+
+def f(x:1,y:2,z:)
+	puts z
+end
+
+f(z:3)
+
+
+=begin
+
 class Class
 	attr_reader :options
 	
