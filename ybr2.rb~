@@ -117,7 +117,7 @@ class BR < YBR
 	end
 end
 
-class Framework::HTTP::Request # HTTP request
+class Connection # HTTP request
 	attr_reader :connection, :server, :time, :headerString, :headers, :remote_ip, :remote_port
 	@@codes = {
 		100 => "Continue",

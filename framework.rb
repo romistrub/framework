@@ -1,7 +1,11 @@
 #!/usr/bin/env ruby
 
-# Author: Romi Strub
-# Last Edited: 17-06-2016 (DD-MM-YYYY)
+=begin
+
+	Author: Romi Strub
+	Last Edited: 18-06-2016 (DD-MM-YYYY)
+
+=end
 
 puts "RUBY_VERSION #{RUBY_VERSION}"
 puts "Process.pid #{Process.pid}"
@@ -82,23 +86,11 @@ class Framework
 
 end # Framework
 	
-module Framework::WebSocket
 
-	def self.unmask_payload(mask, payload)
-		#mask expects string of 4 chars
-		#payload expects string of n chars
-		mask = mask.bytes
-		payload = payload.bytes
-		payload = payload.map.with_index{|byte, i|
-			byte^mask[i%4] ## if either bit is 1, result is 1
-		}
-		payload.map{|c|c.chr}.join
-	end
 
-end # Framework::WebSocket
+class Framework::Server
 
-class Framework::WebSocket::Server
-
+	attr_reader :name	
 	attr_reader :tcp_server, :hostname, :port
 	attr_reader :connection_count, :connections, :connection_history
 	attr_reader :options
@@ -106,20 +98,21 @@ class Framework::WebSocket::Server
 	
 	DEFAULT_OPTIONS = {allow_extensions: true}
 
-	def initialize (hostname:"", port:80, site:, options: {})
-	
-		@options = DEFAULT_OPTIONS.merge(options)
-	
+	def initialize (name:'', hostname:'', port:80, site:, options: {})
+		
 		@tcp_server = TCPServer.new(hostname, port)
+
+		@name = name
 		@hostname = hostname
 		@port = port
 		@site = site
+		@options = DEFAULT_OPTIONS.merge(options)	
 
 		@connection_count = 0
 		@connections = []
 		@connection_history = []
 
-		puts "server started on port #{@port}" ##
+		puts "server (name: #{@name}) started on port #{@port}" ##
 
 		puts "\r\nSTART TESTS"
 		#puts MyWebSocket.bytes_to_int([0,0,1])
@@ -129,14 +122,16 @@ class Framework::WebSocket::Server
 
 	def accept(handlers)
 
-		connection = Framework::WebSocket::Connection.new(socket:@tcp_server.accept, server:self, handlers:handlers)
+		socket = @tcp_server.accept
+
+		connection = SOCKET_WRAPPER.new(socket:socket, server:self, handlers:handlers)
 
 		@connection_count += 1
 		@connections << connection
 
 		puts "connection #{@connection_count} on port #{@port}" ##
-		puts "local address: " + connection.socket.local_address.inspect
-		puts "remote address: " + connection.socket.remote_address.inspect
+		puts "local address: #{socket.local_address}"
+		puts "remote address: #{socket.remote_address}"
 		puts "connections:" ##
 		ap @connections ##
 
@@ -159,28 +154,83 @@ class Framework::WebSocket::Server
 
 	end
 
-end # Framework::WebSocket::Server
+end # Framework::Server
 
-class Framework::WebSocket::Connection
+module Framework::WebSocket
+
+	def self.unmask_payload(mask, payload)
+		#mask expects string of 4 chars
+		#payload expects string of n chars
+		mask = mask.bytes
+		payload = payload.bytes
+		payload = payload.map.with_index{|byte, i|
+			byte^mask[i%4] ## if either bit is 1, result is 1
+		}
+		payload.map{|c|c.chr}.join
+	end
+
+end # Framework::WebSocket
+
+class Framework::Connection
 
 	attr_reader :socket, :server
+	attr_reader :request_headers
+	attr_reader :remote_ip, :remote_port
+	attr_reader :time
+
+	def initialize(socket:, server:)
+
+		@socket = socket
+		@server = server
+
+		@remote_ip = tcpSocket.remote_address.ip_address
+		@remote_port = tcpSocket.remote_address.ip_port
+		@time = Time.now
+
+		puts "#{@time} REQUEST RECEIVED (server: #{@server.name}, ##{@server.connections.length}, port:#{@server.port}; from: #{@remote_ip}:#{@remote_port})" ##
+		@request_headers = Framework::parse_http_headers(@socket.recv(1024))
+		ap @request_headers ##
+
+	end
+
+	def close
+
+		@socket.close
+
+		@server.remove_connection(self)
+
+		@socket_open = false
+
+		puts "\r\nCONNECTION CLOSED\r\n\r\n"
+		puts "#{code}: #{reason}"
+
+		@on_close.call(self)
+
+	end
+
+end # Framework::Connection
+
+class Framework::WebSocket::Connection < Framework::Connection
+
 	attr_reader :message_count, :messages
 	attr_reader :page
 
 	def initialize(socket:, server:, handlers:{})
 
-		@socket = socket
-		@socket_open = true
-		@server = server
+		super(socket:socket,server:server)
+
 		@message_count = 0
 		@messages = []
+
 		@on_open = handlers[:on_open] || proc {}
 		@on_message = handlers[:on_message] || proc {}
 		@on_close = handlers[:on_close] || proc {}
+
 		@page = nil
 
-		handshake_response
+		handshake_response(@request_headers)
 
+		@socket_open = true
 		@on_open.call(self)
 
 		# receive messages
@@ -188,100 +238,81 @@ class Framework::WebSocket::Connection
 
 			while @socket_open do
 
-				begin
+				handle_frame
 
-					frame = receive_frame
-					opcode = frame["opcode"]
-					payload = frame["payload"]
-					fin = frame["fin"]
-		
-					puts "\r\n#########################################\r\n"
-
-					puts "\r\nCONNECTION\r\n\r\n##{get_connection_number} #{@socket}"
-
-					puts "\r\nDECODED FRAME\r\n\r\n"
-					ap frame
-
-					case opcode
-					when 10 # pong
-		
-						# register pong successful
-		
-					when 9 # ping
-		
-						# send pong
-						write encode_frame(opcode:10)
-		
-					when 8 # close
-		
-						# mirror received close code
-						close_code = Framework.byte_string_to_int(payload.slice!(0..1))
-
-						close(close_code, payload)
-		
-					when 1, 2 # text or binary
-		
-						message = add_message(payload)
-
-						if fin
-		
-							messages << message
-							message.complete
-							@on_message.call(message)
-		
-						end
-		
-						puts "\r\nMESSAGE NUMBER\r\n\r\n#{@message_count}"
-
-					when 0 # continuation
-		
-						message << payload
-		
-					end
-
-				rescue => e
-
-					write encode_frame(payload:"#{e.class.name}\n#{e.message}\n#{e.backtrace.join('\n')}")
-
-				end
-		
 			end
 
 		}
 	end
 
-	def close(code, reason = "")
-	# code expects integer
-		@on_close.call(self)
-		write encode_frame(opcode:8, payload:(Framework.int_to_byte_string(code, 2) << reason)) # encode close message
-		@server.remove_connection(self)
-		@socket.close
-		@socket_open = false
+	def handle_frame
 
-		puts "\r\nCONNECTION CLOSED\r\n\r\n"
-		puts "#{code}: #{reason}"
+		begin
+
+			frame = receive_frame
+			opcode = frame["opcode"]
+			payload = frame["payload"]
+			fin = frame["fin"]
+
+			puts "\r\n#########################################\r\n"
+
+			puts "\r\nCONNECTION\r\n\r\n##{get_connection_number} #{@socket}"
+
+			puts "\r\nDECODED FRAME\r\n\r\n"
+			ap frame
+
+			case opcode
+			when 10 # pong
+
+				# register pong successful
+
+			when 9 # ping
+
+				# send pong
+				write encode_frame(opcode:10)
+
+			when 8 # close
+
+				# mirror received close code
+				close_code = Framework.byte_string_to_int(payload.slice!(0..1))
+
+				close(code:close_code, reason:payload) # echoes same close reason
+
+			when 1, 2 # start of text or binary message
+
+				message = add_message(payload)
+
+				if fin
+
+					@messages << message
+					message.complete	# parses message using extension specified by first bit
+					@on_message.call(message)
+
+				end
+
+				puts "\r\nMESSAGE NUMBER\r\n\r\n#{@message_count}"
+
+			when 0 # continuation
+
+				message << payload
+
+			end
+
+		rescue => e
+
+			write encode_frame(payload:"#{e.class.name}\n#{e.message}\n#{e.backtrace.join('\n')}")
+
+		end
 
 	end
 
-	def add_message(msg)
+	def handshake_response(request_headers)
 
-		@message_count += 1
-		Framework::WebSocket::Message.new(self, msg)
-
-	end
-
-	def handshake_response
-
-		string = @socket.recv(1024)
-
-		in_headers = Framework::parse_http_headers(string)
-		ap in_headers ##
-
-		if defined? in_headers["Sec-WebSocket-Key"]
+		if defined? request_headers["Sec-WebSocket-Key"]
 
 			# compute response for WebSocket
 	
-			websocket_key = in_headers["Sec-WebSocket-Key"]
+			websocket_key = request_headers["Sec-WebSocket-Key"]
 			key_suffix = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 			computed_key = Digest::SHA1.base64digest(websocket_key + key_suffix)
 
@@ -364,10 +395,6 @@ class Framework::WebSocket::Connection
 		}
 	end
 
-	def get_connection_number
-		@server.get_connection_number(self)
-	end
-
 	def encode_frame(fin: true, opcode: 1, payload:"")
 
 		body = ""
@@ -391,16 +418,36 @@ class Framework::WebSocket::Connection
 
 	end
 
-	def write(content)
-		@socket.write(content)
+	def close(code:, reason:"")
+	# code expects integer
+
+		write encode_frame(opcode:8, payload:(Framework.int_to_byte_string(code, 2) << reason)) # encode close message
+
+		super
+
+	end
+
+	def add_message(msg)
+
+		@message_count += 1
+		Framework::WebSocket::Message.new(self, msg)
+
 	end
 
 	def recv(bytes)
 		@socket.recv(bytes)
 	end
 
+	def write(content)
+		@socket.write(content)
+	end
+
 	def link_page(page)
 		@page = page
+	end
+
+	def get_connection_number
+		@server.get_connection_number(self)
 	end
 
 end # Framework::WebSocket::Connection
@@ -465,33 +512,145 @@ class Framework::WebSocket::Message
 
 end # Framework::WebSocket::Message
 
+module Framework::HTTP
+end
+
+class Framework::HTTP::Request < Framework::Connection
+
+	CODES = {
+		100 => "Continue",
+		101 => "Switching Protocols",
+		200 => "OK",
+		201 => "Created",
+		202 => "Accepted",
+		203 => "Non-Authoritative Information",
+		204 => "No Content",
+		205 => "Reset Content",
+		206 => "Partial Content",
+		300 => "Multiple Choices",
+		301 => "Moved Permanently",
+		302 => "Found",
+		303 => "See Other",
+		304 => "Not Modified",
+		305 => "Use Proxy",
+		306 => "",
+		307 => "Temporary Redirect",
+		401 => "Unauthorized",
+		402 => "Payment Required",
+		403 => "Forbidden",
+		404 => "Not Found",
+		405 => "Method Not Allowed",
+		406 => "Not Acceptable",
+		407 => "Proxy Authentication Required",
+		408 => "Request Timeout",
+		409 => "Conflict",
+		410 => "Gone",
+		411 => "Length Required",
+		412 => "Precondition Failed",
+		413 => "Request Entity Too Large",
+		414 => "Request-URI Too Long",
+		415 => "Unsupported Media Type",
+		416 => "Requested Range Not Satisfiable",
+		417 => "Expectation Failed",
+		500 => "Internal Server Error",
+		501 => "Not Implemented",
+		502 => "Bad Gateway",
+		503 => "Service Unavailable",
+		504 => "Gateway Timeout",
+		505 => "HTTP Version Not Supported"
+	}
+
+	def initialize(socket:, server:, handlers:{})
+
+		attr_reader :on_request
+
+		super(socket:socket,server:server)
+
+		@on_request = handlers[:on_request] || proc {}
+
+		@on_request.call(self)
+
+		close
+
+	end
+
+	def respond(status_code:, headers:{}, payload:'')
+
+		status_line = "HTTP/1.1 #{status_code} #{CODES[status_code]}"
+
+		output = "#{status_line}\r\n"
+
+		headers.each{|key, value|
+			output << "#{key}: #{value}\r\n"
+		}
+
+		output << "\r\n#{payload}"
+
+		write output
+
+		puts "#{Time.now} RESPONSE SENT (server:#{server.name}, port:#{server.port}, to:#{remote_ip}:#{remote_port}, length:#{output.length})" ##
+		puts "#{Time.now} RESPONSE INFO (status:#{status_line}#{headers['Content-Type']})\n\n"
+	end
+end
+
+class Framework::WebSocket::Server
+
+	SOCKET_WRAPPER = Framework::WebSocket::Connection
+
+end # Framework::WebSocket::Server
+
+class Framework::HTTP::Server
+	
+	SOCKET_WRAPPER = Framework::HTTP::Request
+
+end # Framework::HTTP::Server
+
 class Framework::Site
-	attr_reader :pages, :name, :server
+
+	attr_reader :http_server, :websocket_server
+	attr_reader :name
+	attr_reader :pages
+
 	def initialize(name:"")
-		@pages = []
+
+		@http_server = Framework::HTTP::Server.new(name:"my_server", port:80, site:self)
+		@websocket_server = Framework::WebSocket::Server.new(port:9292, site:self)
+
 		@name = name
-		@server = Framework::WebSocket::Server.new(port:9292, site:self)
+
+		@pages = []
+
+
 	end
+
 	def add_page(connection)
+
 		@pages << Framework::Site::Page.new(site: self, connection: connection)
+
 	end
+
 end # Framework::Site
 
 class Framework::Site::Page
+
 	attr_reader :connection, :site
+
 	def initialize(site:, connection:)
+
 		@site = site
 		@connection = connection
 		connection.link_page(self)
+
 	end
+
 end # Framework::Site::Page
 
 site = Framework::Site.new
 
 # on_open, on_message, and/or on_close
 
-handlers = {
-	:on_message => proc {|message|
+websocket_handlers = {
+	on_message: proc {|message|
 	
 		connection = message.connection
 
@@ -522,11 +681,33 @@ handlers = {
 	}
 }
 
+http_handlers = {
 
+	on_request: proc {|connection|
+
+		# uri = connection.headers["URI"]
+		
+		if uri == "/"
+
+			output = File.read("test_response.htm")
+			#output = (ERB.new template).result(mbr.getBinding)
+			connection.respond status_code:200, headers:{"Content-Type"=>"text/html"}, payload:output
+
+		end
+
+	}	
+	
+}
+
+Thread.new {
+	loop {
+
+		# receive connection
+		connection = site.websocket_server.accept websocket_handlers
+
+	}
+}
 
 loop {
-
-	# receive connection
-	connection = site.server.accept handlers
-
+		connection = site.http_server.accept http_handlers
 }

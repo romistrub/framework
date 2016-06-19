@@ -2,16 +2,24 @@
 	<head>
 		<script type="text/javascript" src="javascript/mootools.js"></script>
 		<script type="text/javascript">
-			window.addEvent("domready", function() {
-				console.log($('#submit'));
-				$('#submit').addEvent("click", function() {
-					$('#hi').innerHTML = "<script type='text/javascript'>console.log('hi');<\/script>";
-				});
-			});
+			console.log("preparing");
 		</script>
 	</head>
 	<body>
-		<input id="submit" type="submit" value="Insert Script"/>
-		<div id="hi"></div>
+		<iframe id="i" src="file:///home/romistrub/framework/iframe_test.htm">no frame</iframe>
+		<a id="to1">Frame1</a>
+		<a id="to2">Frame2</a>
+		<script type="text/javascript">
+			$("to2").addEvent("click", function(){
+				console.log("clicked");
+				$('i').setProperty("src", "file:///home/romistrub/framework/iframe_test2.htm");
+				return false;
+			});
+			$("to1").addEvent("click", function(){
+				console.log("clicked");
+				$('i').setProperty("src", "file:///home/romistrub/framework/iframe_test.htm");
+				return false;
+			});
+		</script>
 	</body>
 </html>

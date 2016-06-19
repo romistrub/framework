@@ -1,0 +1,12 @@
+<html>
+	<head>
+		<title>test_response</title>
+		<script type="text/javascript">
+			console.log("hello from test_response");
+			console.log(window.parent);
+		</script>
+	</head>
+	<body>
+		<h1>test_response</h1>
+	</body>
+</html>
