@@ -1,0 +1,11 @@
+<html>
+	<head>
+	<script type="text/javascript">
+		console.log("hello from iframe");
+		console.log(window.parent);
+	</script>
+	</head>
+	<body>
+		<h1>frame</h1>
+	</body>
+</html>

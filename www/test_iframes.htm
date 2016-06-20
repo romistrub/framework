@@ -1,0 +1,25 @@
+<html>
+	<head>
+		<script type="text/javascript" src="javascript/mootools.js"></script>
+		<script type="text/javascript">
+			console.log("preparing");
+		</script>
+	</head>
+	<body>
+		<iframe id="i" src="test_iframe.htm">no frame</iframe>
+		<a id="to1">Frame1</a>
+		<a id="to2">Frame2</a>
+		<script type="text/javascript">
+			$("to2").addEvent("click", function(){
+				console.log("clicked");
+				$('i').setProperty("src", "test_iframe2.htm");
+				return false;
+			});
+			$("to1").addEvent("click", function(){
+				console.log("clicked");
+				$('i').setProperty("src", "test_iframe.htm");
+				return false;
+			});
+		</script>
+	</body>
+</html>
