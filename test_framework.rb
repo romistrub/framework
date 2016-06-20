@@ -1,14 +1,4 @@
 class C
-	def initialize (name:'', hostname:'', port:80, site:, options: {})
-
-	end
-
-end
-
-		@http_server = C.new(port:80, site:self)
-=begin
-
-class C
 	def initialize
 		@a = 1
 		@b = "z"
