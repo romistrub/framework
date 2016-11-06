@@ -1,0 +1,16 @@
+<html>
+<head>
+<script>
+var f = function(x) {
+	var x = x;
+	return function() {
+		return x;
+	}
+}
+
+g = f(1);
+h = g(2);
+console.log(g());
+</script>
+</head>
+</html>

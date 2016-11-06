@@ -1,0 +1,18 @@
+<html>
+	<head>
+		<script type="text/javascript">
+			var MyWebSocket = function (initializer) {
+				this.property = initializer;
+			}
+			
+			MyWebSocket.prototype.echo = function() {
+				console.log(this.property);
+			}
+			
+			myWebSocket = new MyWebSocket("hello world")
+			myWebSocket.echo();
+		</script>
+	</head>
+	<body>
+	</body>
+</html>

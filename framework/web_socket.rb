@@ -1,4 +1,8 @@
 require_relative("../framework")
+require_relative("../framework/http")
+require 'digest/sha1'
+require 'json'
+require 'base64'
 
 module Framework::WebSocket
 
@@ -15,7 +19,7 @@ module Framework::WebSocket
 
 end # Framework::WebSocket
 
-class Framework::WebSocket::Server < Framework::Server
+class Framework::WebSocket::Server < Framework::HTTP::Server
 
 	def socket_class
 		Framework::WebSocket::Connection
@@ -23,70 +27,102 @@ class Framework::WebSocket::Server < Framework::Server
 
 	def accept(*args)
 		super(*args)
-		puts "connections: @connections.length" ##
+		puts "connections: #{@connections.length}" ##
 	end
 
 end # Framework::WebSocket::Server
 
-class Framework::WebSocket::Connection < Framework::Connection
+class Framework::WebSocket::Connection < Framework::HTTP::Request
 
 	attr_reader :message_count, :messages
-	attr_reader :page
-
+	alias :super_close :close
+	
 	def initialize(socket:, server:, handlers:{})
 
-		super(socket:socket,server:server)
+		@handshake_successful = false
+	
+		http_handlers = {
+			on_request: proc {
+				handshake_response(@request_headers)
+				@handshake_successful = true
+			}
+		}
+	
+		@on_open = handlers[:on_open] || proc {}
+		@on_message = handlers[:on_message] || proc {}
+		@on_close = handlers[:on_close] || proc {}
+		
+		super(socket:socket,server:server, handlers:http_handlers)
 
 		@message_count = 0
 		@messages = []
 
-		@on_open = handlers[:on_open] || proc {}
-		@on_message = handlers[:on_message] || proc {}
-		@on_close = handlers[:on_close] || proc {}
-
-		@page = nil
-
-		handshake_response(@request_headers)
-
-		@socket_open = true
-		@on_open.call(self)
-
-		# receive messages
-		Thread.new {
-
-			while @socket_open do
-
-				handle_frame
-
-			end
-
-		}
 	end
 
+	def response_complete
+
+		if @handshake_successful
+	
+			@socket_open = true
+			@on_open.call(self)
+
+			# receive messages
+			Thread.new {
+
+				while @socket_open do
+
+					handle_frame
+
+				end
+
+			}
+			
+		else
+		
+			super_close()
+			
+		end
+	
+	end
+	
 	def handshake_response(request_headers)
 
-		if defined? request_headers["Sec-WebSocket-Key"]
-
-			# compute response for WebSocket
+		# RFC 6455 4.2.1: Reading the Client's Opening Handshake
 	
-			websocket_key = request_headers["Sec-WebSocket-Key"]
-			key_suffix = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-			computed_key = Digest::SHA1.base64digest(websocket_key + key_suffix)
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.1 requires HTTP/1.1 or higher") unless request_headers["Protocol"] == "HTTP" && request_headers["ProtocolVersion"].to_f >= 1.1
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.1 requires GET method") unless request_headers["Method"] == "GET"
 
-			out_headers =  "HTTP/1.1 101 Switching Protocols\r\n"
-			out_headers << "Connection: Upgrade\r\n"
-			out_headers << "Date: #{Time.now}\r\n"
-			out_headers << "Sec-Websocket-Accept: #{computed_key}\r\n"
-			out_headers << "Server: Ruby Websocket\r\n"
-			out_headers << "Upgrade: websocket\r\n"
-			out_headers << "\r\n"
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.2 requires Host header field") unless request_headers.has_key? "Host"
 
-			write out_headers
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.3 requires Upgrade header field") unless request_headers.has_key? "Upgrade"
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.3 requires that Upgrade header field value contains 'websocket' (case insensitive)") unless request_headers["Upgrade"].downcase.include?("websocket")
 
-			puts "RESPONSE SENT:" ##
-			puts out_headers ##
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.4 requires Connection header field") unless request_headers.has_key? "Connection"
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.4 requires that Connection header field value contains 'upgrade' (case insensitive)") unless request_headers["Connection"].downcase.include?("upgrade")
 
-		end
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.5 requires Sec-WebSocket-Key header field") unless request_headers.has_key? "Sec-WebSocket-Key"
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.5 requires that Sec-WebSocket-Key header field value, when decoded, is a 16-byte string") unless 	Base64.decode64(request_headers["Sec-WebSocket-Key"]).length == 16
+
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.6 requires Sec-WebSocket-Version header field") unless request_headers.has_key? "Sec-WebSocket-Version"
+		raise Framework::HTTP::BadRequest.new("WebSocket RFC 6455 4.2.1.6 requires that Sec-WebSocket-Version header field is value '13'") unless request_headers["Sec-WebSocket-Version"] == "13"
+
+		# RFC 6455 4.2.2: Sending the Server's Opening Handshake; Section 5
+		
+		# compute response for WebSocket
+		computed_key = Digest::SHA1.base64digest(request_headers["Sec-WebSocket-Key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+
+		out_headers =  "HTTP/1.1 101 Switching Protocols\r\n"
+		out_headers << "Upgrade: websocket\r\n"
+		out_headers << "Connection: Upgrade\r\n"
+		out_headers << "Sec-Websocket-Accept: #{computed_key}\r\n"
+		out_headers << "Date: #{Time.now}\r\n"
+		out_headers << "Server: Ruby WebSocket\r\n"
+		out_headers << "\r\n"
+
+		write out_headers
+
+		puts "RESPONSE SENT:" ##
+		puts out_headers ##
 
 	end
 
@@ -130,7 +166,7 @@ class Framework::WebSocket::Connection < Framework::Connection
 				if fin
 
 					@messages << message
-					message.complete	# parses message using extension specified by first bit
+					message.complete
 					@on_message.call(message)
 
 				end
@@ -140,6 +176,14 @@ class Framework::WebSocket::Connection < Framework::Connection
 			when 0 # continuation
 
 				message << payload
+				
+				if fin
+
+					@messages << message
+					message.complete
+					@on_message.call(message)
+
+				end
 
 			end
 
@@ -214,7 +258,7 @@ class Framework::WebSocket::Connection < Framework::Connection
 		}
 	end
 
-	def encode_frame(fin: true, opcode: 1, payload:"")
+	def self.encode_frame(fin: true, opcode: 1, payload:"")
 
 		body = ""
 
@@ -240,7 +284,7 @@ class Framework::WebSocket::Connection < Framework::Connection
 	def close(code:, reason:'')
 	# code expects integer
 
-		write encode_frame(opcode:8, payload:(Framework.int_to_byte_string(code, 2) << reason)) # encode close message
+		write Framework::WebSocket::Connection.encode_frame(opcode:8, payload:(Framework.int_to_byte_string(code, 2) << reason)) # encode close message
 
 		super()
 
@@ -258,23 +302,11 @@ class Framework::WebSocket::Connection < Framework::Connection
 
 	end
 
-	def link_page(page)
-		@page = page
-	end
-
 end # Framework::WebSocket::Connection
 
 class Framework::WebSocket::Message
 
 	attr_reader :content, :connection, :server, :format
-
-	FORMATS = {
-		"\x00" => "plaintext",
-		"\x01" => "json",
-		"\x06" => "initialize"
-	}
-
-	EXTENSIONS = FORMATS.invert
 	
 	def initialize(connection, message = "")
 		
@@ -284,7 +316,6 @@ class Framework::WebSocket::Message
 		@complete = false
 		@buffered_content = message
 				
-
 	end
 
 	def <<(string)
@@ -295,25 +326,12 @@ class Framework::WebSocket::Message
 
 	def complete
 
-		formats = Framework::WebSocket::Message::FORMATS
-
-		if @server.options[:allow_extensions]
-			@format = (formats.has_key?(@buffered_content[0])) ? formats[@buffered_content.slice!(0)] : "plaintext"
-		end
-		
-		case @format
-		when "initialize", "plaintext"
-			@content = @buffered_content
-		when "json"
-			@content = JSON.parse(@buffered_content)
-		end
-
+		@content = @buffered_content
 		@buffered_content = nil
 		@complete = true
 
-		puts "MESSAGE FORMAT: #{@format}\r\n\r\n"
 		puts "MESSAGE CONTENT:\r\n\r\n"
-		ap @content
+		puts @content
 	end		
 
 	def to_json

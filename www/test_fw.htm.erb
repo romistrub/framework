@@ -1,0 +1,126 @@
+<html>
+
+<head>
+
+<title>test_fw</title>
+<link rel="stylesheet" href="css/mocha-2.5.3.css">
+<script type="text/javascript" src="javascript/jquery-3.0.0.min.js"></script>
+<script type="text/javascript" src="javascript/fw.js"></script>
+
+</head>
+
+<body>
+
+	<div id="mocha"></div>
+	<div id="mocha-fixture"></div>
+	
+	<script type="text/javascript" src="javascript/mocha-2.5.3.js"></script>
+	<script type="text/javascript" src="javascript/chai-3.5.0.js"></script>
+	<script>mocha.setup('bdd')</script>
+	<script type="text/javascript">
+	
+		var expect = chai.expect;
+	
+		myConnection = FW.connection("ws://localhost:9292", "<%= @ticket %>", function(){
+		
+			var that = this;
+			var testUser = {name: "test_user", password: "1234"};
+			
+			describe("connection", function() {
+				describe("#readyState", function() {
+					it("should equal 1", function() {
+						expect(that.readyState()).to.equal(1);
+					});
+				});
+				
+				describe("#sendJSONRPC", function() {
+				
+					describe("#echo", function() {
+						it("should echo input", function(done){
+							that.sendJSONRPC("echo", ["param1", "param2"], function(rpc) {
+								expect(rpc).to.have.all.keys(["jsonrpc","result","id"]);
+								expect(rpc["result"]).to.deep.equal(["param1","param2"]);
+								done();
+							});
+						});
+					});
+				
+					describe("user functions", function(){
+					
+						describe("#user_exists?", function(){
+							it("should return false after the user has been deleted", function(done){
+								that.sendJSONRPC("delete_user", [testUser.name], function(rpc) {
+									expect(rpc["result"]).to.equal(null);
+									that.sendJSONRPC("user_exists?", [testUser.name], function(rpc) {
+										expect(rpc["result"]).to.equal(false);
+										done();
+									});
+								});								
+							});
+							it("should return true after the user has been added", function(done){
+								that.sendJSONRPC("add_user", [testUser], function(rpc) {
+									expect(rpc["result"]).to.equal(null);
+									that.sendJSONRPC("user_exists?", [testUser.name], function(rpc) {
+										expect(rpc["result"]).to.equal(true);
+										that.sendJSONRPC("delete_user", [testUser.name], function(){
+											done();
+										});
+									});
+								});
+							});
+						});
+					
+						describe("#add_user", function(){
+							it("should add the user to the database", function(done){
+								that.sendJSONRPC("add_user", [testUser], function(rpc) {
+									expect(rpc["result"]).to.equal(null);
+									that.sendJSONRPC("get_user", [testUser.name], function(rpc) {
+										expect(rpc["result"]["name"]).to.equal(testUser.name);
+										expect(rpc["result"]["password"]).to.equal(testUser.password);
+										done();
+									});
+								});
+							});
+						});
+						
+						describe("#update_user", function(){
+							it("should update the user in the database", function(done){
+								that.sendJSONRPC("update_user", [testUser.name, {password: "new_password"}], function(rpc) {
+									expect(rpc["result"]).to.equal(null);
+									that.sendJSONRPC("get_user", [testUser.name], function(rpc) {
+										expect(rpc["result"]["name"]).to.equal(testUser.name);
+										expect(rpc["result"]["password"]).to.equal("new_password");
+										done();
+									});
+								});
+							});
+						});
+						
+						describe("#delete_user", function(){
+							it("should return false after the user has been deleted", function(done){
+								that.sendJSONRPC("delete_user", [testUser.name], function(rpc) {
+									expect(rpc["result"]).to.equal(null);
+									that.sendJSONRPC("user_exists?", [testUser.name], function(rpc) {
+										expect(rpc["result"]).to.equal(false);
+										done();
+									});
+								});
+							});
+						});
+						
+					});
+					
+
+				
+				});
+				
+			});
+			mocha.run();
+		});
+		
+
+	</script>
+
+</body>
+
+</html>

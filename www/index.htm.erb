@@ -1,0 +1,220 @@
+<html>
+
+<head>
+
+<title>test_framework</title>
+
+<script type="text/javascript" src="javascript/jquery-3.0.0.min.js"></script>
+<script type="text/javascript" src="javascript/fw.js"></script>
+<script type="text/javascript">
+
+	FW.myConnection = FW.connection("ws://localhost:9292","<%= @ticket %>");
+
+	FW.myConnection.rpcMethods = {
+		addUserToList: function(userData) {
+			FW.addUserTo($("#users_online"), userData);
+			return true;
+		},
+		removeUserFromList: function(name) {
+			$("#user_" + name).remove();
+			return true;
+		},
+		echo: function(string) {
+			console.log("echo: " + string);
+			return string;
+		}
+	}
+	
+	FW.addUserTo = function(userList, userData) {
+		$("<li/>", {
+				text: userData.name,
+				id: "user_" + userData.name,
+				"class": "user"
+			}).prependTo(userList);
+	}	
+	FW.removeUserFromList = function(name) {
+		var userList = $("users_on_this_page");
+		$("#user_" + name).remove();
+	}
+	
+	FW.addNewUserError = function(s) {
+		var errorElement = $("#new_user_errors");
+		jQuery("<li/>", {
+			text: s
+		}).appendTo(errorElement);
+	}
+	FW.clearNewUserErrors = function() {
+		$("#new_user_errors").empty();
+	}
+
+	FW.addLoginError = function(s) {
+		var errorElement = $("#login_errors");
+		jQuery("<li/>", {
+			text: s
+		}).appendTo(errorElement);
+	}
+	FW.clearLoginErrors = function() {
+		$("login_errors").empty();
+	}
+	
+	FW.validatePasswords = function(password1, password2) {
+	
+		if (password1 !== password2) {
+			FW.addNewUserError("Passwords must match");
+			return false
+		}
+		
+		if (password1.length < 8) {
+			FW.addNewUserError("Password must be a minimum of 8 characters.")
+			return false		
+		}
+		
+		return true
+		
+	}
+
+	$(window).on("unload", function() {
+		console.log("unloading");
+		FW.myConnection.close(1000);
+	});
+
+</script>
+
+</head>
+
+<body>
+	<section>
+	
+		<h1>Ruby Framework Test</h1>
+		
+		<section>
+		
+			<h2>User</h2>
+			
+			<section>
+				<h3>New User</h3>
+				<label for="new_username">Username</label>
+				<input id="new_username" type="text"/>
+				<label for="new_password_1">Password</label>
+				<input id="new_password_1" type="password"/>
+				<label for="new_password_2">Again</label>
+				<input id="new_password_2" type="password"/>
+				<input id="submit_new_user" type="submit"/>
+				<script>
+					$("#submit_new_user").on("click", function(){
+						var newUserName = $("#new_username").val();
+						var password1 = $("#new_password_1").val();
+						var password2 = $("#new_password_2").val();
+
+						FW.clearNewUserErrors();
+						
+						if (FW.validatePasswords(password1, password2)) {
+							FW.myConnection.sendJSONRPC("user_exists?", [newUserName], function(rpc){
+								if (rpc.hasOwnProperty("result")) {
+									if (rpc.result === true) {
+										FW.addNewUserError("User '" + newUserName + "' already exists; please choose a new username.");
+									} else {
+										FW.myConnection.sendJSONRPC("add_user", [{name: newUserName, password: password1}], function(rpc2){
+											// user has been added to the database, log user in
+											// FW.myConnection.sendJSONRPC("login_user", [{name: newUserName, password: password1}])
+										});
+									}
+								}
+							});
+						}
+					});
+				</script>
+				<h4>Errors</h4>
+				<ol id="new_user_errors"></ol>
+			</section>
+			
+			<section>
+				<h3>Log-In</h3>
+				<label for="username">Username</label>
+				<input id="username" type="text"/>
+				<label for="password">Password</label>
+				<input id="password" type="text"/>
+				<input id="submit_login" type="submit"/>
+				<script>
+					$("#submit_login").on("click", function(){
+						var username = $("#username").val();
+						var password = $("#password").val();
+						var userData = {name: username};
+						
+						FW.clearLoginErrors();
+						
+						FW.myConnection.sendJSONRPC("user_exists?", [username], function(rpc){
+							if (rpc.hasOwnProperty("result")) {
+								if (rpc.result === false) {
+									FW.addLoginError("User '" + username + "' does not exist in the database.");
+								} else {
+									FW.myConnection.sendJSONRPC("login_user", [username, password], function(rpc){
+										if (rpc.result === false) {
+											FW.addLoginError("Password is incorrect.");
+										} else {
+											FW.myConnection.sendJSONRPC("get_user", [username], function(rpc){
+												FW.addUserTo($("#users_on_this_page"), rpc.result);
+												FW.myConnection.sendJSONRPC("forward", [{to:"site", method:"addUserToList", params:[userData]}]);
+												FW.myConnection.user = username;
+											});
+										}
+									});
+								}
+							}
+						});
+					});
+				</script>
+				<input id="submit_logout" type="submit" value="Logout"/>
+				<script>
+					$("#submit_logout").on("click", function(){
+						username = FW.myConnection.user;
+						FW.myConnection.sendJSONRPC("logout_user", [username]);
+						FW.myConnection.sendJSONRPC("forward", [{to:"site", method:"removeUserFromList", params:[username]}]);
+						FW.removeUserFromList(username);
+					});
+				</script>
+				<h4>Errors</h4>
+				<ol id="login_errors"></ol>
+			</section>
+			
+			<section>
+				<h3>You are logged in as</h3>
+				<ul id="users_on_this_page"></ul>
+				<h3>Other users on this site</h3>
+				<ul id="users_online">
+				<% @site.users.each {|name, user| %>
+					<li><%= name %></li>
+				<% } %>
+				</ul>
+			</section>
+			
+		</section>
+
+		<section>
+			<h1>Join Game</h1>
+			<% @site.apps.each {|id, app| %>
+				<p><a class="app" href="#"><%= id %></a></p>
+			<% } %>
+			<script>
+				$(".app").on("click", function(event){
+					console.log(event.target);
+					var app_id = event.target.text;
+					console.log("Join game " + app_id);
+					FW.myConnection.sendJSONRPC("join_app", [FW.myConnection.user, app_id], function(){
+						$("#app_window").prop("src", ("/app/scrabble.htm?id=" + app_id));
+					});
+				});
+			</script>
+			<button type="button" id="new_game">New Game</button>
+			<script>
+				$("#new_game").on("click", function(){
+					console.log("New game!");
+					$("#app_window").prop("src", "/config/scrabble.htm");
+				});
+			</script>
+			<iframe id="app_window">No Iframe Support</iframe>
+		</section>
+		
+</body>
+
+</html>

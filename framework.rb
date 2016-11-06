@@ -3,7 +3,7 @@
 =begin
 
 	Author: Romi Strub
-	Last Edited: 19-06-2016 (DD-MM-YYYY)
+	Last Edited: 20-06-2016 (DD-MM-YYYY)
 
 =end
 
@@ -12,27 +12,45 @@ puts "Process.pid #{Process.pid}"
 
 Thread.abort_on_exception = true
 
-require 'digest/sha1'
 require 'socket'
 require 'awesome_print'
-require 'json'
 
 
 class Framework
 
-	def self.parse_http_headers(header_string)
+	def self.parse_http_request(request_string)
 
+		puts "request string"
+		puts request_string
+	
 		return_hash = {}
 
-		lines = header_string.split("\r\n")
-		first_line = lines.shift
-		first_line_words = first_line.split(" ")
+		sections = request_string.split("\r\n\r\n")
+		header = sections.shift
+		body = sections.join
+		
+		header_lines = header.split("\r\n")
+		status_line = header_lines.shift
 
-		return_hash["Method"] = first_line_words[0]
-		return_hash["URI"] = first_line_words[1]
-		return_hash["Protocol"] = first_line_words[2]
-
-		lines.each {|line|
+		method, uri, protocol = status_line.split(" ")
+		
+		return_hash["Method"] = method
+		return_hash["URI"] = uri
+		
+		return_hash["Protocol"], return_hash["ProtocolVersion"] = protocol.split("/")
+		
+		case method
+		when "GET"
+			query = uri.split("?")
+			return_hash["URI"] = query.shift
+			query = query.join
+		when "POST"
+			query = body
+		end
+		
+		return_hash[method] = get_query_vars(query)
+		
+		header_lines.each {|line|
 			key_val = line.split(": ")
 			return_hash[key_val[0]] = key_val[1]
 		}
@@ -41,6 +59,16 @@ class Framework
 
 	end
 
+	def self.get_query_vars(query)
+			return_hash = {}
+			vars = query.split("&")
+			vars.each {|var|
+				key_val = var.split("=")
+				return_hash[key_val[0]] = key_val[1]
+			}
+			return_hash
+	end
+	
 	def self.int_to_byte_string(int, string_length)
 
 		# check to see if integer exceeds maximum size given by string_length
@@ -94,7 +122,7 @@ class Framework::Server
 	attr_reader :options
 	attr_reader :site
 	
-	DEFAULT_OPTIONS = {allow_extensions: true}
+	DEFAULT_OPTIONS = {}
 
 	def initialize (name:'', hostname:'', port:80, site:, options: {})
 		
@@ -122,6 +150,8 @@ class Framework::Server
 
 		socket = @tcp_server.accept
 
+		puts "CONNECTION ACCEPTED"
+		
 		socket_class.new(socket:socket, server:self, handlers:handlers)
 
 	end
@@ -153,6 +183,9 @@ class Framework::Connection
 	attr_reader :remote_ip, :remote_port
 	attr_reader :time
 
+	OPEN = 1
+	CLOSED = 0
+	
 	def initialize(socket:, server:)
 
 		@socket = socket
@@ -170,9 +203,19 @@ class Framework::Connection
 		puts "remote address: #{@remote_ip}:#{@remote_port}"
 
 		puts "#{@time} REQUEST RECEIVED (server: #{@server.name}, ##{@server.connections.length}, port:#{@server.port}; from: #{@remote_ip}:#{@remote_port})" ##
-		@request_headers = Framework::parse_http_headers(@socket.recv(1024))
-		ap @request_headers ##
+		
+		@ready_state = OPEN
+		
+		@request = @socket.recv(1024)
+		puts "request.length = #{@request.length}"
 
+		# recv blocks; and returns 0 bytes if the connection is closed by the client
+		if @request.length == 0
+		
+			@ready_state = CLOSED
+			
+		end
+			
 	end
 
 	def close

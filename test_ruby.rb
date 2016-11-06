@@ -1,3 +1,32 @@
+
+
+=begin
+
+puts "s" + Random.new_seed.to_s
+
+=begin
+def add_user (name:, password:)
+	p name, password
+end
+
+method(:add_user).call({name:"zorgon", password:"power_rangers"})
+
+=begin
+
+class C
+	RPC = {"x" => "y"}
+	def x
+		puts 'in x'
+	end
+	def y
+		puts 'in y'
+	end
+end
+obj = C.new
+obj.send(C::RPC["x"])
+
+=begin
+
 class C
 	def initialize
 		@a = 1

@@ -1,0 +1,22 @@
+<NotepadPlus>
+    <Session activeView="1">
+        <mainView activeIndex="6">
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="1440" startPos="3934" endPos="3934" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework.rb" backupFilePath="" originalFileLastModifTimestamp="1466440911" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="1062" startPos="21" endPos="21" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework\web_socket.rb" backupFilePath="" originalFileLastModifTimestamp="1466440755" />
+            <File firstVisibleLine="48" xOffset="0" scrollWidth="1032" startPos="1865" endPos="1865" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework\http.rb" backupFilePath="" originalFileLastModifTimestamp="1466441310" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="900" startPos="143" endPos="143" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework\site.rb" backupFilePath="" originalFileLastModifTimestamp="1466440868" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="990" startPos="829" endPos="829" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\my_site.rb" backupFilePath="" originalFileLastModifTimestamp="1466441416" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="352" startPos="0" endPos="0" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\test_framework.rb" backupFilePath="" originalFileLastModifTimestamp="1466434487" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="572" startPos="0" endPos="0" selMode="0" lang="HTML" encoding="-1" filename="C:\Users\Romi Strub\framework\www\test_framework.htm" backupFilePath="" originalFileLastModifTimestamp="1466434487" />
+        </mainView>
+        <subView activeIndex="6">
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="477" startPos="0" endPos="0" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework.rb" backupFilePath="" originalFileLastModifTimestamp="1466440911" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="1062" startPos="21" endPos="21" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework\web_socket.rb" backupFilePath="" originalFileLastModifTimestamp="1466440755" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="621" startPos="30" endPos="30" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework\http.rb" backupFilePath="" originalFileLastModifTimestamp="1466441310" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="900" startPos="143" endPos="143" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\framework\site.rb" backupFilePath="" originalFileLastModifTimestamp="1466440868" />
+            <File firstVisibleLine="24" xOffset="0" scrollWidth="990" startPos="1709" endPos="1709" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\my_site.rb" backupFilePath="" originalFileLastModifTimestamp="1466441416" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="352" startPos="0" endPos="0" selMode="0" lang="Ruby" encoding="-1" filename="C:\Users\Romi Strub\framework\test_framework.rb" backupFilePath="" originalFileLastModifTimestamp="1466434487" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="572" startPos="0" endPos="0" selMode="0" lang="HTML" encoding="-1" filename="C:\Users\Romi Strub\framework\www\test_framework.htm" backupFilePath="" originalFileLastModifTimestamp="1466434487" />
+        </subView>
+    </Session>
+</NotepadPlus>

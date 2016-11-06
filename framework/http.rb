@@ -9,6 +9,9 @@ module Framework::HTTP
 		".html" => "text/html",
 		".ico" => "image/x-icon"
 	}
+	
+	class BadRequest < StandardError
+	end
 
 end
 
@@ -40,6 +43,7 @@ class Framework::HTTP::Request < Framework::Connection
 		305 => "Use Proxy",
 		306 => "",
 		307 => "Temporary Redirect",
+		400 => "Bad Request",
 		401 => "Unauthorized",
 		402 => "Payment Required",
 		403 => "Forbidden",
@@ -66,17 +70,36 @@ class Framework::HTTP::Request < Framework::Connection
 	}
 
 		attr_reader :on_request
+		attr_reader :ticket
 
 	def initialize(socket:, server:, handlers:{})
 
 		super(socket:socket,server:server)
-
+		
 		@on_request = handlers[:on_request] || proc {}
+		
+		if @ready_state == OPEN
+					
+			begin
+				@request_headers = Framework::parse_http_request(@request)
+				ap @request_headers
+				@on_request.call(self)
+			rescue Framework::HTTP::BadRequest => e
+				respond(status_code:400, payload:e.message)
+				puts "INVALID REQUEST"
+				puts "#{e.class.name}\n#{e.message}\n#{e.backtrace.join("\n")}"
+			end			
+			
+			response_complete
+			
+		end
 
-		@on_request.call(self)
-
+	end
+	
+	def response_complete
+	
 		close
-
+	
 	end
 
 	def respond(status_code:, headers:{}, payload:'')

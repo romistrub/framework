@@ -19,4 +19,5 @@ client = Mysql2::Client.new(options)
 
 #puts client.query("CREATE TABLE players (id INT NOT NULL primary key AUTO_INCREMENT);")
 
-
+r = client.query("SELECT * FROM users WHERE name='romistrub' AND password='abcd';")
+puts r.size

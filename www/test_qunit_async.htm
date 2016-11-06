@@ -1,0 +1,39 @@
+<html>
+
+<head>
+
+<title>test_qunit</title>
+<link rel="stylesheet" href="css/qunit-2.0.0.css">
+<script type="text/javascript" src="javascript/jquery-3.0.0.min.js"></script>
+
+</head>
+
+<body>
+
+	<div id="qunit"></div>
+	<div id="qunit-fixture"></div>
+	
+	<script type="text/javascript" src="javascript/qunit-2.0.0.js"></script>
+	<script type="text/javascript">
+
+			
+		QUnit.module("async tests", {
+			beforeEach: function(assert){
+				var done = assert.async();
+				done();
+			},
+			afterEach: function(assert){
+				var abcd = assert.async();
+				abcd();
+			}
+		});
+		
+		QUnit.test("test module", function(assert){
+			assert.equal("1","1",'yeah');
+		});	
+	
+	</script>
+
+</body>
+
+</html>

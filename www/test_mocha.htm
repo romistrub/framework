@@ -1,0 +1,39 @@
+<html>
+
+<head>
+
+<title>test_framework</title>
+<link rel="stylesheet" href="css/mocha-2.5.3.css">
+<script type="text/javascript" src="javascript/jquery-3.0.0.min.js"></script>
+<script type="text/javascript" src="javascript/fw.js"></script>
+
+</head>
+
+<body>
+
+	<div id="mocha"></div>
+	<div id="mocha-fixture"></div>
+	
+	<script type="text/javascript" src="javascript/mocha-2.5.3.js"></script>
+	<script type="text/javascript" src="javascript/chai-3.5.0.js"></script>
+	<script>mocha.setup('bdd')</script>
+	<script type="text/javascript">
+	
+		var expect = chai.expect;
+
+		
+			describe("1", function() {
+				describe("still 1", function() {	
+					it("should equal 1", function() {
+						expect(1).to.equal(1);
+					});
+				});
+			});
+			
+
+	</script>
+	<script>mocha.run()</script>
+
+</body>
+
+</html>
