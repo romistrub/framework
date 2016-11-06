@@ -1,3 +1,5 @@
+X
+
 Classes: USER, WEBSITE, APP, TILE, WORD, TURN,  BOARD, SPACE, LOBBY, RACK, RACKSPACE, BAG
 
 USER fields: username, password, nickname, status; games
